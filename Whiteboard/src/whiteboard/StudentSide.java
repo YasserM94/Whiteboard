@@ -2,6 +2,7 @@ package whiteboard;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
@@ -19,12 +20,14 @@ import java.util.ArrayList;
 import javax.swing.BorderFactory;
 
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JColorChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
@@ -42,6 +45,9 @@ public class StudentSide extends JFrame implements ActionListener {
 
     BufferedImage bufferedImageHandImage;
 
+    JPanel jPanelSelectedShape, jPanelSelectedColor;
+    JLabel jLabelSelectedShape, jLabelSelectedColor;
+
     JPanel jPanelBoard, drawingPanel,
             jPanelConnectionStatus, jPanelSessionTimer, jPanelShapesCount, jPanelRaiseHand;
     JLabel jLabelConnectionStatus, jLabelSessionTimer, jLabelShapesCount, jLabelRaiseHand;
@@ -52,23 +58,28 @@ public class StudentSide extends JFrame implements ActionListener {
     JButton jbSendButton;
 
     JMenuBar jMenuBarMenuBar;
-    JMenu jMenuShapes, jMenuColor, jMenuClear, jMenuExit;
-    JMenuItem jMenuItemShapeSquare, jMenuItemShapeOval, jMenuItemShapeLine,
+    JMenu jMenuTimer, jMenuAttendance, jMenuShapes, jMenuColor, jMenuClear, jMenuExit;
+    JMenuItem jMenuIteamAttendanceAttend, jMenuItemShapeSquare, jMenuItemShapeOval, jMenuItemShapeLine,
             jMenuItemColorSelect, jMenuItemClearBoard, jMenuItemClearChat, jMenuItemExitSelect;
 
+    String studentName = null;
+    String selectedDrawShape = "Square";
     boolean studentMode = false, isHandRaised = false, iAmTyping = false;
     int selectedShape;
+    int x, y, dx, dy;
 
     Color btnColor = new Color(255, 255, 160);
-    Color selectedColor = Color.GRAY;
+    Color selectedColor = new Color(204, 255, 204);
 
     Timer timerClient;
+    Timer timerAnimation;
     String timeFormatted;
     int timeMin, timeSec;
+    boolean isTimerRunning = false, isTimeOver = false;
 
     private ObjectOutputStream objectOutputStream;
     private ObjectInputStream objectInputStream;
-    private String clientSocket;
+    private final String clientSocket;
     private Socket connectionSocket;
 
     // </editor-fold>
@@ -129,6 +140,18 @@ public class StudentSide extends JFrame implements ActionListener {
         jLabelShapesCount.setForeground(Color.gray);
         jPanelShapesCount.add(jLabelShapesCount);
 
+        // Initialize The "Shapes Count" JPanel and JLabel
+        jPanelSelectedShape = new JPanel();
+        jPanelSelectedShape.setBorder(BorderFactory.createMatteBorder(1, 1, 1, 0, Color.BLACK));
+        jLabelSelectedShape = new JLabel("<html><font color='black'>Selected Shape: </font></html>");
+        jPanelSelectedShape.add(jLabelSelectedShape);
+
+        jPanelSelectedColor = new JPanel();
+        jPanelSelectedColor.setBackground(selectedColor);
+        jPanelSelectedColor.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 1, Color.BLACK));
+        jLabelSelectedColor = new JLabel("Square");
+        jPanelSelectedColor.add(jLabelSelectedColor);
+
         // Initialize The "Scrollable Chat Area" jTextArea and jScrollPane
         jTextAreaChat = new JTextArea();
         jTextAreaChat.setEditable(false);
@@ -151,7 +174,9 @@ public class StudentSide extends JFrame implements ActionListener {
         jPanelRaiseHand.setBounds(123, 32, 54, 60);
         jPanelSessionTimer.setBounds(1, 32, 121, 30);
         jPanelShapesCount.setBounds(1, 63, 121, 29);
-        jScrollPaneScrollableChat.setBounds(1, 93, 176, 232);
+        jPanelSelectedShape.setBounds(1, 93, 112, 29);
+        jPanelSelectedColor.setBounds(113, 93, 64, 29);
+        jScrollPaneScrollableChat.setBounds(1, 123, 176, 202);
         jTextFieldMessageBox.setBounds(1, 326, 176, 30);
         jbSendButton.setBounds(1, 357, 176, 30);
         drawingPanel.setBounds(180, 1, 403, 386);
@@ -161,6 +186,8 @@ public class StudentSide extends JFrame implements ActionListener {
         jPanelBoard.add(jPanelRaiseHand);
         jPanelBoard.add(jPanelSessionTimer);
         jPanelBoard.add(jPanelShapesCount);
+        jPanelBoard.add(jPanelSelectedShape);
+        jPanelBoard.add(jPanelSelectedColor);
         jPanelBoard.add(jScrollPaneScrollableChat);
         jPanelBoard.add(jTextFieldMessageBox);
         jPanelBoard.add(jbSendButton);
@@ -244,6 +271,14 @@ public class StudentSide extends JFrame implements ActionListener {
     public void setJMenuBarAndMenuBarItems() {
         jMenuBarMenuBar = new JMenuBar();
 
+        jMenuTimer = new JMenu("Timer");
+        jMenuBarMenuBar.add(jMenuTimer);
+
+        jMenuAttendance = new JMenu("Attendance");
+        jMenuIteamAttendanceAttend = new JMenuItem("Attend Session");
+        jMenuAttendance.add(jMenuIteamAttendanceAttend);
+        jMenuBarMenuBar.add(jMenuAttendance);
+
         jMenuShapes = new JMenu("Shapes");
         jMenuItemShapeSquare = new JMenuItem("Square");
         jMenuItemShapeOval = new JMenuItem("Oval");
@@ -275,6 +310,8 @@ public class StudentSide extends JFrame implements ActionListener {
 
     // Add ActionListener to the Components which requires clicking action
     public void setActionListener() {
+        jMenuIteamAttendanceAttend.addActionListener(this);
+
         jMenuItemShapeSquare.addActionListener(this);
         jMenuItemShapeOval.addActionListener(this);
         jMenuItemShapeLine.addActionListener(this);
@@ -304,10 +341,10 @@ public class StudentSide extends JFrame implements ActionListener {
 
             public void changed() {
                 if (jTextFieldMessageBox.getText().equals("")) {
-                    jbSendButton.setEnabled(false);
+                    enableSendButton(false);
                     iAmTyping(false);
                 } else {
-                    jbSendButton.setEnabled(true);
+                    enableSendButton(true);
                 }
             }
         });
@@ -338,9 +375,12 @@ public class StudentSide extends JFrame implements ActionListener {
     // Override the actionPerformed Function to customize the Clicking Results
     @Override
     public void actionPerformed(ActionEvent ae) {
+        if (ae.getSource() == jMenuIteamAttendanceAttend) {
+            setAttendeeName(studentName);
+            System.out.println("Menu Iteam Attendance Attend");
+        }
         if (ae.getSource() == jMenuItemExitSelect) {
-            System.out.println("The Program has been Successfully Terminated");
-            System.exit(0);
+            exitApplication();
         }
     }
 
@@ -364,6 +404,14 @@ public class StudentSide extends JFrame implements ActionListener {
                 case 2:
                     g.setColor(shape.getColor());
                     g.drawLine(shape.getX(), shape.getY(), shape.getX() + 66, shape.getY() + 66);
+                    break;
+                case 3:
+//                    Graphics2D g2 = (Graphics2D) g;
+                    g.setFont(new Font("TimesRoman", Font.PLAIN, 26));
+//                    g2.drawString("Time is Over", shape.getX(), shape.getY());
+                    drawnShapesList = new ArrayList<Shape>();
+                    g.setColor(Color.red);
+                    g.drawString("Time is Over", shape.getX(), shape.getY());
                     break;
                 default:
                     break;
@@ -391,6 +439,11 @@ public class StudentSide extends JFrame implements ActionListener {
                 System.out.println("Case 2");
                 break;
             case 3:
+                if (obj.trueOrFalse) {
+                    startTimerAnimation();
+                } else if (!obj.trueOrFalse) {
+                    resetTimer();
+                }
                 System.out.println("Case 3");
                 break;
             case 4:
@@ -398,11 +451,24 @@ public class StudentSide extends JFrame implements ActionListener {
                 System.out.println("Case 4");
                 break;
             case 5:
-                clearTheBoard();
+                if (obj.getNum() == 1) {
+                    clearTheBoard();
+                } else if (obj.getNum() == 2) {
+                    clearTheChat();
+                }
                 System.out.println("Case 5");
                 break;
             case 6:
-                clearTheChat();
+                if (obj.getNum() == 0) {
+                    updateSelectedShapeAndColor("Square");
+                } else if (obj.getNum() == 1) {
+                    updateSelectedShapeAndColor("Oval");
+                } else if (obj.getNum() == 2) {
+                    updateSelectedShapeAndColor("Line");
+                } else if (obj.getNum() == 3) {
+                    selectedColor = obj.getColor();
+                    updateSelectedShapeAndColor(selectedDrawShape);
+                }
                 System.out.println("Case 6");
                 break;
             case 7:
@@ -445,6 +511,19 @@ public class StudentSide extends JFrame implements ActionListener {
         });
     }
 
+    // Update the Shape and Color of the SelectedShapeAndColor Label
+    private void updateSelectedShapeAndColor(final String selectedShapeAndColor) {
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                selectedDrawShape = selectedShapeAndColor;
+                jPanelSelectedColor.setBackground(selectedColor);
+                jLabelSelectedColor.setText(selectedShapeAndColor);
+//                jLabelSelectedColor.setFont(new Font(Font.DIALOG, Font.BOLD, 12));
+            }
+        });
+    }
+
     // Append a message to the Chat Window
     private void appendMessageToChat(final String string) {
         SwingUtilities.invokeLater(new Runnable() {
@@ -481,7 +560,9 @@ public class StudentSide extends JFrame implements ActionListener {
     public void drawShape(int type, int x, int y, Color color) {
         Shape receivedShape = new Shape(type, x, y, color);
         drawnShapesList.add(receivedShape);
-        shapesCounter();
+        if (!isTimeOver) {
+            shapesCounter();
+        }
         repaint();
     }
 
@@ -524,7 +605,7 @@ public class StudentSide extends JFrame implements ActionListener {
         }
     }
 
-    // Chechk if the Client is Typing
+    // Check if the Teacher is Typing
     public void isTyping(boolean isTypingNow) {
         if (isTypingNow) {
             updateStatus("<html>Teacher is <font color='blue'>Typing..</font></html>");
@@ -561,6 +642,7 @@ public class StudentSide extends JFrame implements ActionListener {
 
     // Disable the MenuBar options on the Client Side and on the Teacher Side before connecting
     public void setMenuBarEnabled(boolean status) {
+        jMenuTimer.setEnabled(status);
         jMenuShapes.setEnabled(status);
         jMenuColor.setEnabled(status);
         jMenuClear.setEnabled(status);
@@ -600,6 +682,7 @@ public class StudentSide extends JFrame implements ActionListener {
             }
         });
         timerClient.start();
+        isTimerRunning = true;
         System.out.println("Timer has Started Successfully");
     }
 
@@ -642,11 +725,102 @@ public class StudentSide extends JFrame implements ActionListener {
     }
 
     public void resetTimer() {
-        updateTimer("<html><font color='black'>Time Left: </font>00:00</html>");
-        timerClient.stop();
-        System.out.println("Timer has been Stopped Successfully");
+        if (isTimerRunning) {
+            updateTimer("<html><font color='black'>Time Left: </font>00:00</html>");
+            timerClient.stop();
+            isTimerRunning = false;
+        }
+        if (isTimeOver) {
+            isTimeOver = false;
+            stopAnimation();
+        }
+        System.out.println("Timer has been Reset Successfully");
     }
 
+    // Write Animation code here
+    public void startTimerAnimation() {
+        isTimeOver = true;
+        startAnimation();
+        System.out.println("startTimerAnimation function has Started Successfully");
+    }
+
+    public void setAnimation() {
+        if (x >= 438 || x <= 182) {
+            dx = -dx;
+        }
+        if (y >= 434 || y <= 70) {
+            dy = -dy;
+        }
+        x += dx;
+        y += dy;
+        drawShape(3, x, y, selectedColor);
+    }
+
+    public void startAnimation() {
+        clearTheBoard();
+        x = 300;
+        y = 300;
+        dx = +2;
+        dy = +2;
+        timerAnimation = new Timer(25, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent ae) {
+                setAnimation();
+            }
+        });
+        timerAnimation.start();
+        System.out.println("timerAnimation has Started Successfully");
+    }
+
+    public void stopAnimation() {
+        timerAnimation.stop();
+        drawnShapesList = new ArrayList<Shape>();
+        repaint();
+    }
+
+    // </editor-fold>
+    //
+    // <editor-fold defaultstate="collapsed" desc="Attendance Functions">
+    public void setAttendeeName(String studentName) {
+        while (studentName == null || studentName.equals("") || !studentName.matches("^[a-zA-Z0-9]*$")) {
+            studentName = JOptionPane.showInputDialog("Enter Your Name: ");
+            if (studentName == null) {
+                JOptionPane.showMessageDialog(null, "No name was enterd\nPlease Try Again", "Mandatory", JOptionPane.ERROR_MESSAGE);
+            } else if (!studentName.matches("^[a-zA-Z0-9]*$") || studentName.equals("")) {
+                JOptionPane.showMessageDialog(null, "Please enter a valid name\ncontaining: 'a-z' or 'A-Z' or numbers", "Invalid Name", JOptionPane.ERROR_MESSAGE);
+            } else {
+                streamObject(new ComplexObject(6, studentName));
+                jMenuAttendance.setEnabled(false);
+                System.out.println("Enter Student Name");
+            }
+        }
+    }
+
+    // </editor-fold>
+    //
+    // <editor-fold defaultstate="collapsed" desc="Exit Confirmation and CheckBox">
+    public void exitApplication() {
+        JPanel exitPanel = new JPanel();
+        exitPanel.setLayout(null);
+        JLabel exitLabelQuestion = new JLabel("Are you sure?");
+        exitLabelQuestion.setBounds(0, 4, 80, 20);
+        JCheckBox exitCheckBox = new JCheckBox();
+        exitCheckBox.setBounds(90, 4, 20, 20);
+        JLabel exitLabelConfirm = new JLabel("Confirm");
+        exitLabelConfirm.setBounds(112, 4, 50, 20);
+        exitPanel.add(exitLabelQuestion);
+        exitPanel.add(exitCheckBox);
+        exitPanel.add(exitLabelConfirm);
+        JOptionPane.showMessageDialog(null, exitPanel);
+        boolean isExitChecked = exitCheckBox.isSelected();
+        if (isExitChecked) {
+            System.out.println("Exit is Checked");
+            System.exit(0);
+        } else {
+            System.out.println("Exit is Not Checked");
+        }
+        System.out.println("The Program has been Successfully Terminated");
+    }
     // </editor-fold>
     //
 }

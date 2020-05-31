@@ -39,6 +39,12 @@ public class ComplexObject implements Serializable {
         this.trueOrFalse = trueOrFalse;
     }
 
+    public ComplexObject(int id, int num, Color color) {
+        this.id = id;
+        this.num = num;
+        this.color = color;
+    }
+
     public ComplexObject(int id, String message) {
         this.id = id;
         this.message = message;

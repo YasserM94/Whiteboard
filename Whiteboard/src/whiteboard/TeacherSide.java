@@ -2,7 +2,9 @@ package whiteboard;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Font;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -10,15 +12,23 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.EOFException;
+import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.BorderFactory;
 
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JColorChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -35,12 +45,12 @@ import javax.swing.Timer;
 import javax.swing.UIManager;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.filechooser.FileSystemView;
 
 public class TeacherSide extends JFrame implements ActionListener {
 
     // <editor-fold defaultstate="collapsed" desc="Declared Variables">
     ArrayList<Shape> drawnShapesList = new ArrayList<Shape>();
-//    ArrayList<ComplexObject> complexObjList = new ArrayList<ComplexObject>();
 
     BufferedImage bufferedImageHandImage;
 
@@ -56,12 +66,15 @@ public class TeacherSide extends JFrame implements ActionListener {
     JButton JButtonSend;
 
     JMenuBar jMenuBarMenuBar;
-    JMenu jMenuTimer, jMenuShapes, jMenuColor, jMenuClear, jMenuExit;
-    JMenuItem jMenuItemSetTimer, jMenuIteamResetTimer, jMenuItemShapeSquare, jMenuItemShapeOval, jMenuItemShapeLine,
-            jMenuItemColorSelect, jMenuItemColorRandom, jMenuItemClearBoard, jMenuItemClearChat, jMenuItemExitSelect;
+    JMenu jMenuTimer, jMenuAttendance, jMenuShapes, jMenuColor, jMenuClear, jMenuExit;
+    JMenuItem jMenuItemSetTimer, jMenuIteamResetTimer, jMenuIteamTimerAnim, jMenuIteamAttendeeList, jMenuIteamExportList,
+            jMenuItemShapeSquare, jMenuItemShapeOval, jMenuItemShapeLine, jMenuItemColorSelect, jMenuItemColorRandom,
+            jMenuItemClearBoard, jMenuItemClearChat, jMenuItemExitSelect;
 
+    String studentName = null;
     boolean teacherMode = false, isHandRaised = false, iAmTyping = false, isConnected = false;
     int selectedShape, xPoint, yPoint;
+    int x, y, dx, dy;
 
     Color defaultColor = UIManager.getColor("Panel.background"); // Default Button Color
     Color btnColor = new Color(255, 255, 204);
@@ -69,9 +82,10 @@ public class TeacherSide extends JFrame implements ActionListener {
     String selectedDrawShape = "Square";
 
     Timer timerServer;
+    Timer timerAnimation;
     String timeFormatted;
     int timeMin, timeSec;
-    boolean isTimerRunning;
+    boolean isTimerRunning = false, isTimeOver = false;
 
     private ObjectOutputStream objectOutputStream;
     private ObjectInputStream objectInputStream;
@@ -272,9 +286,20 @@ public class TeacherSide extends JFrame implements ActionListener {
         jMenuTimer = new JMenu("Timer");
         jMenuItemSetTimer = new JMenuItem("Set Timer");
         jMenuIteamResetTimer = new JMenuItem("Reset Timer");
+        jMenuIteamResetTimer.setEnabled(false);
+        jMenuIteamTimerAnim = new JMenuItem("Test Animation");
         jMenuTimer.add(jMenuItemSetTimer);
         jMenuTimer.add(jMenuIteamResetTimer);
+        jMenuTimer.add(jMenuIteamTimerAnim);
         jMenuBarMenuBar.add(jMenuTimer);
+
+        jMenuAttendance = new JMenu("Attendance");
+        jMenuIteamAttendeeList = new JMenuItem("Attendee List");
+        jMenuIteamExportList = new JMenuItem("Export List");
+        jMenuIteamExportList.setEnabled(false);
+        jMenuAttendance.add(jMenuIteamAttendeeList);
+        jMenuAttendance.add(jMenuIteamExportList);
+        jMenuBarMenuBar.add(jMenuAttendance);
 
         jMenuShapes = new JMenu("Shapes");
         jMenuItemShapeSquare = new JMenuItem("Square");
@@ -311,6 +336,10 @@ public class TeacherSide extends JFrame implements ActionListener {
     public void setActionListener() {
         jMenuItemSetTimer.addActionListener(this);
         jMenuIteamResetTimer.addActionListener(this);
+        jMenuIteamTimerAnim.addActionListener(this);
+
+        jMenuIteamAttendeeList.addActionListener(this);
+        jMenuIteamExportList.addActionListener(this);
 
         jMenuItemShapeSquare.addActionListener(this);
         jMenuItemShapeOval.addActionListener(this);
@@ -345,10 +374,10 @@ public class TeacherSide extends JFrame implements ActionListener {
 
             public void messageBoxChanged() {
                 if (jTextFieldMessageBox.getText().equals("")) {
-                    JButtonSend.setEnabled(false);
+                    enableSendButton(false);
                     iAmTyping(false);
                 } else {
-                    JButtonSend.setEnabled(true);
+                    enableSendButton(true);
                 }
             }
         });
@@ -366,8 +395,8 @@ public class TeacherSide extends JFrame implements ActionListener {
         addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                if (e.getX() > 190 && e.getX() < 503 && e.getY() > 57 && e.getY() < 379) {
-                    if (!(e.getX() == xPoint && e.getY() == yPoint)) {
+                if (e.getX() > 190 && e.getX() < 503 && e.getY() > 57 && e.getY() < 379 && !isTimeOver) {
+                    if (!(e.getX() == xPoint && e.getY() == yPoint)) { // Prevent drwaing in the same point
                         streamObject(drawShape(selectedShape, e.getX(), e.getY(), selectedColor));
                         xPoint = e.getX();
                         yPoint = e.getY();
@@ -389,17 +418,34 @@ public class TeacherSide extends JFrame implements ActionListener {
         } else if (ae.getSource() == jMenuIteamResetTimer) {
             resetTimer();
             System.out.println("Reset Timer");
+        } else if (ae.getSource() == jMenuIteamTimerAnim) {
+            startTimerAnimation();
+            System.out.println("Test Animation");
+        }
+        if (ae.getSource() == jMenuIteamAttendeeList) {
+            openAttendeeList();
+            System.out.println("Attendee List");
+        } else if (ae.getSource() == jMenuIteamExportList) {
+            try {
+                writeToFile();
+            } catch (IOException ex) {
+                Logger.getLogger(TeacherSide.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            System.out.println("Export List");
         }
         if (ae.getSource() == jMenuItemShapeSquare) {
+            streamObject(new ComplexObject(6, 0));
             selectedShape = 0;
             updateSelectedShapeAndColor("Square");
             System.out.println("Square");
         } else if (ae.getSource() == jMenuItemShapeOval) {
             selectedShape = 1;
+            streamObject(new ComplexObject(6, 1));
             updateSelectedShapeAndColor("Oval");
             System.out.println("Oval");
         } else if (ae.getSource() == jMenuItemShapeLine) {
             selectedShape = 2;
+            streamObject(new ComplexObject(6, 2));
             updateSelectedShapeAndColor("Line");
             System.out.println("Line");
         }
@@ -419,9 +465,8 @@ public class TeacherSide extends JFrame implements ActionListener {
             System.out.println("Chat Cleared");
         }
         if (ae.getSource() == jMenuItemExitSelect) {
-            System.out.println("The Program has been Successfully Terminated");
+            exitApplication();
             isConnected = false;
-            System.exit(0);
         }
 //        if (ae.getSource() == timerServer) {
 //
@@ -429,7 +474,6 @@ public class TeacherSide extends JFrame implements ActionListener {
     }
 
     // </editor-fold>
-    //
     //
     // <editor-fold defaultstate="collapsed" desc="Override the Paint Function">
     // Override the Paint Function to Draw shapes on the Whiteboard
@@ -450,6 +494,14 @@ public class TeacherSide extends JFrame implements ActionListener {
                     g.setColor(shape.getColor());
                     g.drawLine(shape.getX(), shape.getY(), shape.getX() + 66, shape.getY() + 66);
                     break;
+                case 3:
+//                    Graphics2D g2 = (Graphics2D) g;
+                    g.setFont(new Font("TimesRoman", Font.PLAIN, 26));
+//                    g2.drawString("Time is Over", shape.getX(), shape.getY());
+                    drawnShapesList = new ArrayList<Shape>();
+                    g.setColor(Color.red);
+                    g.drawString("Time is Over", shape.getX(), shape.getY());
+                    break;
                 default:
                     break;
             }
@@ -457,7 +509,6 @@ public class TeacherSide extends JFrame implements ActionListener {
     }
 
     // </editor-fold>
-    //
     //
     // <editor-fold defaultstate="collapsed" desc="(Switch - Counter - Draw - Append - Update - Clear) Functions">
     // Switch function to check the Received Object type and then process it accordingly
@@ -486,6 +537,8 @@ public class TeacherSide extends JFrame implements ActionListener {
                 System.out.println("Case 5");
                 break;
             case 6:
+                setStudentName(obj.getMessage());
+                jMenuIteamExportList.setEnabled(true);
                 System.out.println("Case 6");
                 break;
             case 7:
@@ -547,11 +600,11 @@ public class TeacherSide extends JFrame implements ActionListener {
     }
 
     // Enable and Disable the Send Button
-    private void enableSendButton(final boolean enableOrDisable) {
+    private void enableSendButton(final boolean btnStatus) {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-                JButtonSend.setEnabled(enableOrDisable);
+                JButtonSend.setEnabled(btnStatus);
             }
         });
     }
@@ -564,6 +617,7 @@ public class TeacherSide extends JFrame implements ActionListener {
         } else if (selection == 1) {
             selectedColor = new Color((int) (Math.random() * 0x1000000));
         }
+        streamObject(new ComplexObject(6, 3, selectedColor));
         updateSelectedShapeAndColor(selectedDrawShape);
     }
 
@@ -579,7 +633,9 @@ public class TeacherSide extends JFrame implements ActionListener {
         Shape sentShape = new Shape(type, x, y, color);
         drawnShapesList.add(sentShape);
         repaint();
-        shapesCounter();
+        if (!isTimeOver) {
+            shapesCounter();
+        }
         return sentComplexObj;
     }
 
@@ -618,7 +674,7 @@ public class TeacherSide extends JFrame implements ActionListener {
         }
     }
 
-    // Chechk if the Client is Typing
+    // Check if the Student is Typing
     public void isTyping(boolean isTypingNow) {
         if (isTypingNow) {
             updateStatus("<html>Student is <font color='blue'>Typing..</font></html>");
@@ -627,7 +683,7 @@ public class TeacherSide extends JFrame implements ActionListener {
         }
     }
 
-    // Send the Typing Object to the Client
+    // Send the Typing Object to the Student
     public void iAmTyping(boolean iAmTypingNow) {
         if (iAmTypingNow) {
             ComplexObject sentComplexObj = new ComplexObject(4, true);
@@ -642,7 +698,7 @@ public class TeacherSide extends JFrame implements ActionListener {
 
     // Clear the Whiteboard and send the "ComplexObject" to the Client
     public void clearTheBoard() {
-        ComplexObject sentComplexObj = new ComplexObject(5);
+        ComplexObject sentComplexObj = new ComplexObject(5, 1);
         streamObject(sentComplexObj);
         drawnShapesList = new ArrayList<Shape>();
         repaint();
@@ -652,7 +708,7 @@ public class TeacherSide extends JFrame implements ActionListener {
 
     // Clear the Chat and send the "ComplexObject" to the Client
     public void clearTheChat() {
-        ComplexObject sentComplexObj = new ComplexObject(6);
+        ComplexObject sentComplexObj = new ComplexObject(5, 2);
         streamObject(sentComplexObj);
         jTextAreaChat.setText(null);
     }
@@ -716,6 +772,8 @@ public class TeacherSide extends JFrame implements ActionListener {
             }
         });
         timerServer.start();
+        jMenuIteamTimerAnim.setEnabled(false);
+        jMenuIteamResetTimer.setEnabled(true);
         System.out.println("Timer has Started Successfully");
     }
 
@@ -751,21 +809,149 @@ public class TeacherSide extends JFrame implements ActionListener {
         }
         if (timeMin <= 0 && timeSec <= 0) {
             timeFormatted = ("<html><font color='red'>Time is Over</font></html>");
-            timerServer.stop();
-            isTimerRunning = false;
+            resetTimer();
+            startTimerAnimation();
             System.out.println("Timer Stopped");
         }
         updateTimer(timeFormatted);
     }
 
     public void resetTimer() {
-        streamObject(new ComplexObject(7, false));
-        updateTimer("<html><font color='black'>Time Left: </font>00:00</html>");
-        timerServer.stop();
-        isTimerRunning = false;
-        System.out.println("Timer has been Stopped Successfully");
+        if (isTimerRunning) {
+            updateTimer("<html><font color='black'>Time Left: </font>00:00</html>");
+            streamObject(new ComplexObject(7, false));
+            timerServer.stop();
+            isTimerRunning = false;
+            jMenuIteamResetTimer.setEnabled(false);
+            jMenuIteamTimerAnim.setEnabled(true);
+        }
+        if (isTimeOver) {
+            streamObject(new ComplexObject(3, false));
+            stopAnimation();
+            jMenuIteamResetTimer.setEnabled(false);
+            jMenuIteamTimerAnim.setEnabled(true);
+        }
+        System.out.println("Timer has been Reset Successfully");
+    }
+
+    // Write Animation code here
+    public void startTimerAnimation() {
+        isTimeOver = true;
+        streamObject(new ComplexObject(3, true));
+        startAnimation();
+        System.out.println("startTimerAnimation function has Started Successfully");
+    }
+
+    public void setAnimation() {
+        if (x >= 438 || x <= 182) {
+            dx = -dx;
+        }
+        if (y >= 434 || y <= 70) {
+            dy = -dy;
+        }
+        x += dx;
+        y += dy;
+        drawShape(3, x, y, selectedColor);
+    }
+
+    public void startAnimation() {
+        enableUI(false);
+        clearTheBoard();
+        x = 300;
+        y = 300;
+        dx = +2;
+        dy = +2;
+        timerAnimation = new Timer(25, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent ae) {
+                setAnimation();
+            }
+        });
+        timerAnimation.start();
+        jMenuIteamResetTimer.setEnabled(true);
+        System.out.println("timerAnimation has Started Successfully");
+    }
+
+    public void stopAnimation() {
+        timerAnimation.stop();
+        drawnShapesList = new ArrayList<Shape>();
+        repaint();
+        enableUI(true);
+    }
+
+    public void enableUI(boolean isEnabled) {
+        isTimeOver = !isEnabled;
+        jMenuAttendance.setEnabled(isEnabled);
+        jMenuShapes.setEnabled(isEnabled);
+        jMenuColor.setEnabled(isEnabled);
+        jMenuClear.setEnabled(isEnabled);
+        jMenuItemSetTimer.setEnabled(isEnabled);
+        jMenuIteamTimerAnim.setEnabled(isEnabled);
     }
 
     // </editor-fold>
     //
+    // <editor-fold defaultstate="collapsed" desc=" Set Student Name + Attendance List + Export Attendance File">
+    public void openAttendeeList() {
+        if (studentName == null) {
+            JOptionPane.showConfirmDialog(null, "The student didn't enter the name yet", "Attendee List",
+                    JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE);
+            System.out.println("AttendeeList is Empty");
+        } else {
+            JOptionPane.showConfirmDialog(null, "Student Name: " + studentName, "Attendee List",
+                    JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE);
+            System.out.println("AttendeeList has a name");
+        }
+    }
+
+    public void setStudentName(String theStudentName) {
+        studentName = theStudentName;
+    }
+
+    public void writeToFile() throws IOException {
+        FileSystemView filesys = FileSystemView.getFileSystemView();
+        File[] roots = filesys.getRoots();
+        File homeDirectory = filesys.getHomeDirectory();
+        Date nowDate = new Date();
+        String nowOnlyDate = new SimpleDateFormat("yyyy/MM/dd").format(Calendar.getInstance().getTime());
+
+        try (PrintWriter attendeeListfile = new PrintWriter(homeDirectory + "./Attendee List.txt")) {
+            attendeeListfile.println("                " + "Attendance List" + " - " + nowOnlyDate );
+            attendeeListfile.println("1. " + studentName);
+            attendeeListfile.println("2. ");
+            attendeeListfile.println("3. ");
+            attendeeListfile.println("4. ");
+            attendeeListfile.println("5. ");
+            attendeeListfile.println("6. ");
+            attendeeListfile.close();
+        }
+    }
+    // </editor-fold>
+    //
+    // <editor-fold defaultstate="collapsed" desc="Exit Confirmation and CheckBox">
+    public void exitApplication() {
+        JPanel exitPanel = new JPanel();
+        exitPanel.setLayout(null);
+        JLabel exitLabelQuestion = new JLabel("Are you sure?");
+        exitLabelQuestion.setBounds(0, 4, 80, 20);
+        JCheckBox exitCheckBox = new JCheckBox();
+        exitCheckBox.setBounds(90, 4, 20, 20);
+        JLabel exitLabelConfirm = new JLabel("Confirm");
+        exitLabelConfirm.setBounds(112, 4, 50, 20);
+        exitPanel.add(exitLabelQuestion);
+        exitPanel.add(exitCheckBox);
+        exitPanel.add(exitLabelConfirm);
+        JOptionPane.showMessageDialog(null, exitPanel);
+        boolean isExitChecked = exitCheckBox.isSelected();
+        if (isExitChecked) {
+            System.out.println("Exit is Checked");
+            System.exit(0);
+        } else {
+            System.out.println("Exit is Not Checked");
+        }
+        System.out.println("The Program has been Successfully Terminated");
+    }
+    // </editor-fold>
+    //
+
 }
