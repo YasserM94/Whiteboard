@@ -979,7 +979,7 @@ public class TeacherSide extends JFrame implements ActionListener {
         File homeDirectory = filesys.getHomeDirectory();
         String nowOnlyDate = new SimpleDateFormat("yyyy/MM/dd").format(Calendar.getInstance().getTime());
 
-        try (PrintWriter attendeeListfile = new PrintWriter(homeDirectory + "./Whiteboard" + "/Attendee List.txt")) {
+        try (PrintWriter attendeeListfile = new PrintWriter(homeDirectory + "./Attendee List.txt")) {
             attendeeListfile.println("                    " + "Attendance List" + " - " + nowOnlyDate);
             attendeeListfile.println("1. " + studentName);
             attendeeListfile.println("2. ");
