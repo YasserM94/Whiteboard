@@ -280,7 +280,7 @@ public class StudentSide extends JFrame implements ActionListener {
         jMenuIteamAttendanceAttend = new JMenuItem("Attend Session");
         jMenuAttendance.add(jMenuIteamAttendanceAttend);
         jMenuBarMenuBar.add(jMenuAttendance);
-        
+
         jMenuDrawing = new JMenu("Drawing");
         jMenuBarMenuBar.add(jMenuDrawing);
 
@@ -777,6 +777,7 @@ public class StudentSide extends JFrame implements ActionListener {
 
     // Set Animation Restrictions
     Color timeIsOverColor = Color.red;
+
     public void setAnimation() {
         if (x >= 438 || x <= 182) {
             timeIsOverColor = new Color((int) (Math.random() * 0x1000000));
@@ -817,12 +818,12 @@ public class StudentSide extends JFrame implements ActionListener {
     //
     // <editor-fold defaultstate="collapsed" desc="Attendance Functions">
     public void setAttendeeName(String studentName) {
-        while (studentName == null || studentName.equals("") || !studentName.matches("^[a-zA-Z0-9]*$")) {
+        while (studentName == null || studentName.equals("") || studentName.equals(" ") || !studentName.matches("^[a-z A-Z]*$")) {
             studentName = JOptionPane.showInputDialog("Enter Your Name: ");
             if (studentName == null) {
                 JOptionPane.showMessageDialog(null, "No name was enterd\nPlease Try Again", "Mandatory", JOptionPane.ERROR_MESSAGE);
-            } else if (!studentName.matches("^[a-zA-Z0-9]*$") || studentName.equals("")) {
-                JOptionPane.showMessageDialog(null, "Please enter a valid name\ncontaining: 'a-z' or 'A-Z' or numbers", "Invalid Name", JOptionPane.ERROR_MESSAGE);
+            } else if (!studentName.matches("^[a-z A-Z]*$") || studentName.equals("") || studentName.equals(" ")) {
+                JOptionPane.showMessageDialog(null, "Please enter a valid name\ncontaining letters only", "Invalid Name", JOptionPane.ERROR_MESSAGE);
             } else {
                 streamObject(new ComplexObject(6, studentName));
                 jMenuAttendance.setEnabled(false);

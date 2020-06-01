@@ -977,11 +977,10 @@ public class TeacherSide extends JFrame implements ActionListener {
         FileSystemView filesys = FileSystemView.getFileSystemView();
         File[] roots = filesys.getRoots();
         File homeDirectory = filesys.getHomeDirectory();
-        Date nowDate = new Date();
         String nowOnlyDate = new SimpleDateFormat("yyyy/MM/dd").format(Calendar.getInstance().getTime());
 
-        try (PrintWriter attendeeListfile = new PrintWriter(homeDirectory + "./Attendee List.txt")) {
-            attendeeListfile.println("                " + "Attendance List" + " - " + nowOnlyDate);
+        try (PrintWriter attendeeListfile = new PrintWriter(homeDirectory + "./Whiteboard" + "/Attendee List.txt")) {
+            attendeeListfile.println("                    " + "Attendance List" + " - " + nowOnlyDate);
             attendeeListfile.println("1. " + studentName);
             attendeeListfile.println("2. ");
             attendeeListfile.println("3. ");
@@ -990,6 +989,8 @@ public class TeacherSide extends JFrame implements ActionListener {
             attendeeListfile.println("6. ");
             attendeeListfile.close();
         }
+        JOptionPane.showConfirmDialog(null, "The file has been exported to the desktop", "Attendance List",
+                JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE);
     }
 
     // </editor-fold>
