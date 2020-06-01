@@ -5,7 +5,6 @@ import javax.swing.JOptionPane;
 
 public class WhiteboardApplication {
 
-//    static String dialogStudentName;
 
     public static void main(String[] args) {
 
