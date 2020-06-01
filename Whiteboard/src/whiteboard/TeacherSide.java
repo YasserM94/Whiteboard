@@ -1,5 +1,6 @@
 package whiteboard;
 
+import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Font;
@@ -66,13 +67,13 @@ public class TeacherSide extends JFrame implements ActionListener {
     JButton JButtonSend;
 
     JMenuBar jMenuBarMenuBar;
-    JMenu jMenuTimer, jMenuAttendance, jMenuShapes, jMenuColor, jMenuClear, jMenuExit;
+    JMenu jMenuTimer, jMenuAttendance, jMenuDrawing, jMenuShapes, jMenuColor, jMenuClear, jMenuExit;
     JMenuItem jMenuItemSetTimer, jMenuIteamResetTimer, jMenuIteamTimerAnim, jMenuIteamAttendeeList, jMenuIteamExportList,
-            jMenuItemShapeSquare, jMenuItemShapeOval, jMenuItemShapeLine, jMenuItemColorSelect, jMenuItemColorRandom,
-            jMenuItemClearBoard, jMenuItemClearChat, jMenuItemExitSelect;
+            jMenuItemDrawGraphics, jMenuItemDrawGraphics2D, jMenuItemShapeSquare, jMenuItemShapeOval, jMenuItemShapeLine,
+            jMenuItemColorSelect, jMenuItemColorRandom, jMenuItemClearBoard, jMenuItemClearChat, jMenuItemExitSelect;
 
     String studentName = null;
-    boolean teacherMode = false, isHandRaised = false, iAmTyping = false, isConnected = false;
+    boolean teacherMode = false, isHandRaised = false, iAmTyping = false, isConnected = false, isGraphics2D = false;
     int selectedShape, xPoint, yPoint;
     int x, y, dx, dy;
 
@@ -93,6 +94,7 @@ public class TeacherSide extends JFrame implements ActionListener {
     private Socket connectionSocket;
 
     // </editor-fold>
+    //
     public TeacherSide() {
         super("Teacher Application");
 //        getHandImage();
@@ -301,6 +303,14 @@ public class TeacherSide extends JFrame implements ActionListener {
         jMenuAttendance.add(jMenuIteamExportList);
         jMenuBarMenuBar.add(jMenuAttendance);
 
+        jMenuDrawing = new JMenu("Drawing");
+        jMenuItemDrawGraphics = new JMenuItem("Graphics");
+        jMenuItemDrawGraphics2D = new JMenuItem("Graphics2D");
+        jMenuItemDrawGraphics.setEnabled(false);
+        jMenuDrawing.add(jMenuItemDrawGraphics);
+        jMenuDrawing.add(jMenuItemDrawGraphics2D);
+        jMenuBarMenuBar.add(jMenuDrawing);
+
         jMenuShapes = new JMenu("Shapes");
         jMenuItemShapeSquare = new JMenuItem("Square");
         jMenuItemShapeOval = new JMenuItem("Oval");
@@ -340,6 +350,9 @@ public class TeacherSide extends JFrame implements ActionListener {
 
         jMenuIteamAttendeeList.addActionListener(this);
         jMenuIteamExportList.addActionListener(this);
+
+        jMenuItemDrawGraphics.addActionListener(this);
+        jMenuItemDrawGraphics2D.addActionListener(this);
 
         jMenuItemShapeSquare.addActionListener(this);
         jMenuItemShapeOval.addActionListener(this);
@@ -433,6 +446,21 @@ public class TeacherSide extends JFrame implements ActionListener {
             }
             System.out.println("Export List");
         }
+        if (ae.getSource() == jMenuItemDrawGraphics) {
+            streamObject(new ComplexObject(8, false));
+            isGraphics2D = false;
+            clearTheBoard();
+            jMenuItemDrawGraphics2D.setEnabled(true);
+            jMenuItemDrawGraphics.setEnabled(false);
+            System.out.println("jMenuItemDrawGraphics");
+        } else if (ae.getSource() == jMenuItemDrawGraphics2D) {
+            streamObject(new ComplexObject(8, true));
+            isGraphics2D = true;
+            clearTheBoard();
+            jMenuItemDrawGraphics2D.setEnabled(false);
+            jMenuItemDrawGraphics.setEnabled(true);
+            System.out.println("jMenuItemDrawGraphics2D");
+        }
         if (ae.getSource() == jMenuItemShapeSquare) {
             streamObject(new ComplexObject(6, 0));
             selectedShape = 0;
@@ -481,36 +509,61 @@ public class TeacherSide extends JFrame implements ActionListener {
     public void paint(Graphics g) {
         super.paint(g);
         drawnShapesList.forEach((shape) -> {
-            switch (shape.getType()) {
-                case 0:
-                    g.setColor(shape.getColor());
-                    g.fillRect(shape.getX(), shape.getY(), 86, 60);
-                    break;
-                case 1:
-                    g.setColor(shape.getColor());
-                    g.fillOval(shape.getX(), shape.getY(), 86, 60);
-                    break;
-                case 2:
-                    g.setColor(shape.getColor());
-                    g.drawLine(shape.getX(), shape.getY(), shape.getX() + 66, shape.getY() + 66);
-                    break;
-                case 3:
-//                    Graphics2D g2 = (Graphics2D) g;
-                    g.setFont(new Font("TimesRoman", Font.PLAIN, 26));
-//                    g2.drawString("Time is Over", shape.getX(), shape.getY());
-                    drawnShapesList = new ArrayList<Shape>();
-                    g.setColor(Color.red);
-                    g.drawString("Time is Over", shape.getX(), shape.getY());
-                    break;
-                default:
-                    break;
+            if (isGraphics2D) {
+                Graphics2D g2 = (Graphics2D) g;
+                switch (shape.getType()) {
+                    case 0:
+                        g2.setColor(shape.getColor());
+                        g2.fillRect(shape.getX(), shape.getY(), 62, 46);
+                        break;
+                    case 1:
+                        g2.setColor(shape.getColor());
+                        g2.fillOval(shape.getX(), shape.getY(), 60, 60);
+                        break;
+                    case 2:
+                        g2.setColor(shape.getColor());
+                        g2.setStroke(new BasicStroke(6));
+                        g2.drawLine(shape.getX(), shape.getY(), shape.getX() + 66, shape.getY() + 66);
+                        break;
+                    case 3:
+                        g2.setColor(shape.getColor());
+                        g2.setFont(new Font("TimesRoman", Font.PLAIN, 26));
+                        g2.drawString("Time is Over", shape.getX(), shape.getY());
+                        drawnShapesList = new ArrayList<Shape>();
+                        break;
+                    default:
+                        break;
+                }
+            } else if (!isGraphics2D) {
+                switch (shape.getType()) {
+                    case 0:
+                        g.setColor(shape.getColor());
+                        g.fillRect(shape.getX(), shape.getY(), 86, 60);
+                        break;
+                    case 1:
+                        g.setColor(shape.getColor());
+                        g.fillOval(shape.getX(), shape.getY(), 86, 60);
+                        break;
+                    case 2:
+                        g.setColor(shape.getColor());
+                        g.drawLine(shape.getX(), shape.getY(), shape.getX() + 66, shape.getY() + 66);
+                        break;
+                    case 3:
+                        drawnShapesList = new ArrayList<Shape>();
+                        g.setColor(shape.getColor());
+                        g.setFont(new Font("TimesRoman", Font.PLAIN, 26));
+                        g.drawString("Time is Over", shape.getX(), shape.getY());
+                        break;
+                    default:
+                        break;
+                }
             }
         });
     }
 
     // </editor-fold>
     //
-    // <editor-fold defaultstate="collapsed" desc="(Switch - Counter - Draw - Append - Update - Clear) Functions">
+    // <editor-fold defaultstate="collapsed" desc="Functions (Switch - Counter - Draw - Append - Update - Clear)">
     // Switch function to check the Received Object type and then process it accordingly
     public void receivedObjViaStreamSwitch(ComplexObject obj) {
         switch (obj.getId()) {
@@ -625,6 +678,12 @@ public class TeacherSide extends JFrame implements ActionListener {
     public void shapesCounter() {
         jLabelShapesCount.setText("Shapes Count: " + String.valueOf(drawnShapesList.size()));
         jLabelShapesCount.setForeground(Color.black);
+    }
+
+    public void drawAnim(int type, int x, int y, Color color) {
+        Shape sentShape = new Shape(type, x, y, color);
+        drawnShapesList.add(sentShape);
+        repaint();
     }
 
     // Draw the selected shape on the Whiteboard and return a "sentComplexObj" ComplexObject
@@ -834,7 +893,7 @@ public class TeacherSide extends JFrame implements ActionListener {
         System.out.println("Timer has been Reset Successfully");
     }
 
-    // Write Animation code here
+    // Start Animation
     public void startTimerAnimation() {
         isTimeOver = true;
         streamObject(new ComplexObject(3, true));
@@ -842,23 +901,28 @@ public class TeacherSide extends JFrame implements ActionListener {
         System.out.println("startTimerAnimation function has Started Successfully");
     }
 
+    // Set Animation Restrictions
+    Color timeIsOverColor = Color.red;
+
     public void setAnimation() {
         if (x >= 438 || x <= 182) {
+            timeIsOverColor = new Color((int) (Math.random() * 0x1000000));
             dx = -dx;
         }
         if (y >= 434 || y <= 70) {
+            timeIsOverColor = new Color((int) (Math.random() * 0x1000000));
             dy = -dy;
         }
         x += dx;
         y += dy;
-        drawShape(3, x, y, selectedColor);
+        drawAnim(3, x, y, timeIsOverColor);
     }
 
     public void startAnimation() {
         enableUI(false);
         clearTheBoard();
-        x = 300;
-        y = 300;
+        x = 260;
+        y = 160;
         dx = +2;
         dy = +2;
         timerAnimation = new Timer(25, new ActionListener() {
@@ -881,12 +945,13 @@ public class TeacherSide extends JFrame implements ActionListener {
 
     public void enableUI(boolean isEnabled) {
         isTimeOver = !isEnabled;
+        jMenuItemSetTimer.setEnabled(isEnabled);
+        jMenuIteamTimerAnim.setEnabled(isEnabled);
         jMenuAttendance.setEnabled(isEnabled);
+        jMenuDrawing.setEnabled(isEnabled);
         jMenuShapes.setEnabled(isEnabled);
         jMenuColor.setEnabled(isEnabled);
         jMenuClear.setEnabled(isEnabled);
-        jMenuItemSetTimer.setEnabled(isEnabled);
-        jMenuIteamTimerAnim.setEnabled(isEnabled);
     }
 
     // </editor-fold>
@@ -916,7 +981,7 @@ public class TeacherSide extends JFrame implements ActionListener {
         String nowOnlyDate = new SimpleDateFormat("yyyy/MM/dd").format(Calendar.getInstance().getTime());
 
         try (PrintWriter attendeeListfile = new PrintWriter(homeDirectory + "./Attendee List.txt")) {
-            attendeeListfile.println("                " + "Attendance List" + " - " + nowOnlyDate );
+            attendeeListfile.println("                " + "Attendance List" + " - " + nowOnlyDate);
             attendeeListfile.println("1. " + studentName);
             attendeeListfile.println("2. ");
             attendeeListfile.println("3. ");
@@ -926,6 +991,7 @@ public class TeacherSide extends JFrame implements ActionListener {
             attendeeListfile.close();
         }
     }
+
     // </editor-fold>
     //
     // <editor-fold defaultstate="collapsed" desc="Exit Confirmation and CheckBox">
