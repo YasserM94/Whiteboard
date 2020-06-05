@@ -13,12 +13,17 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.EOFException;
+import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
 
 import javax.swing.JButton;
@@ -45,7 +50,7 @@ public class StudentSide extends JFrame implements ActionListener {
     // <editor-fold defaultstate="collapsed" desc="Declared Variables">
     ArrayList<Shape> drawnShapesList = new ArrayList<Shape>();
 
-    BufferedImage bufferedImageHandImage;
+    BufferedImage bufferedImageLogo;
 
     JPanel jPanelSelectedShape, jPanelSelectedColor;
     JLabel jLabelSelectedShape, jLabelSelectedColor;
@@ -60,18 +65,19 @@ public class StudentSide extends JFrame implements ActionListener {
     JButton jbSendButton;
 
     JMenuBar jMenuBarMenuBar;
-    JMenu jMenuTimer, jMenuAttendance, jMenuDrawing, jMenuShapes, jMenuColor, jMenuClear, jMenuExit;
+    JMenu jMenuTimer, jMenuAttendance, jMenuDrawing, jMenuShapes, jMenuColor, jMenuClear, jMenuExtra, jMenuExit;
     JMenuItem jMenuIteamAttendanceAttend, jMenuItemShapeSquare, jMenuItemShapeOval, jMenuItemShapeLine,
-            jMenuItemColorSelect, jMenuItemClearBoard, jMenuItemClearChat, jMenuItemExitSelect;
+            jMenuItemColorSelect, jMenuItemClearBoard, jMenuItemClearChat, jMenuItemExitSelect,
+            jMenuItemExtraChangeColor, jMenuItemExtraRaiseHandDialog, jMenuItemExtraBreakTheCounter;
 
     String studentName = null;
     String selectedDrawShape = "Square";
-    boolean studentMode = false, isHandRaised = false, iAmTyping = false, isGraphics2D = false;
-    int selectedShape;
+    boolean studentMode = false, isHandRaised = false, iAmTyping = false, isGraphics2D = false, isCounterBroken = false;
+    int selectedShape, shapesCount;
     int x, y, dx, dy;
 
     Color btnColor = new Color(255, 255, 160);
-    Color selectedColor = new Color(204, 255, 204);
+    Color selectedColor = new Color(153, 255, 153);
 
     Timer timerClient;
     Timer timerAnimation;
@@ -86,6 +92,7 @@ public class StudentSide extends JFrame implements ActionListener {
 
     // </editor-fold>
     //
+    // <editor-fold defaultstate="collapsed" desc="Client Default Constructor">
     public StudentSide(String serverInfo) {
         super("Student Application");
 
@@ -98,6 +105,9 @@ public class StudentSide extends JFrame implements ActionListener {
 
     }
 
+    // </editor-fold>
+    //
+    // <editor-fold defaultstate="collapsed" desc="Initialize The Client GUI">
     // Initialize all the Client Components in the GUI
     public void initializeGUI() {
         // Initialize The Program JPanel
@@ -199,6 +209,8 @@ public class StudentSide extends JFrame implements ActionListener {
 
     }
 
+    // </editor-fold>
+    //
     // <editor-fold defaultstate="collapsed" desc="Connection Management Functions">
     //
     // Start the Client to Connect to the Server
@@ -269,6 +281,10 @@ public class StudentSide extends JFrame implements ActionListener {
         }
     }
 
+    //
+    // </editor-fold>
+    //
+    // <editor-fold defaultstate="collapsed" desc="Initializes ALL the Menu Bar Items">
     // Initializes ALL the Menu Bar Items with it's options
     public void setJMenuBarAndMenuBarItems() {
         jMenuBarMenuBar = new JMenuBar();
@@ -305,14 +321,27 @@ public class StudentSide extends JFrame implements ActionListener {
         jMenuClear.add(jMenuItemClearBoard);
         jMenuBarMenuBar.add(jMenuClear);
 
+        jMenuExtra = new JMenu("Extra");
+        jMenuItemExtraChangeColor = new JMenuItem("Change Background Color");
+        jMenuItemExtraRaiseHandDialog = new JMenuItem("Raise Hand with Dialog");
+        jMenuItemExtraBreakTheCounter = new JMenuItem("Break The Counter");
+        jMenuExtra.add(jMenuItemExtraChangeColor);
+        jMenuExtra.add(jMenuItemExtraRaiseHandDialog);
+        jMenuExtra.add(jMenuItemExtraBreakTheCounter);
+        jMenuBarMenuBar.add(jMenuExtra);
+
         jMenuExit = new JMenu("Exit");
         jMenuItemExitSelect = new JMenuItem("Exit Application");
         jMenuExit.add(jMenuItemExitSelect);
         jMenuBarMenuBar.add(jMenuExit);
 
         setJMenuBar(jMenuBarMenuBar);
+
     }
 
+    // </editor-fold>
+    //
+    // <editor-fold defaultstate="collapsed" desc="setActionListener to Components">
     // Add ActionListener to the Components which requires clicking action
     public void setActionListener() {
         jMenuIteamAttendanceAttend.addActionListener(this);
@@ -323,6 +352,11 @@ public class StudentSide extends JFrame implements ActionListener {
 
         jMenuItemColorSelect.addActionListener(this);
         jMenuItemClearBoard.addActionListener(this);
+
+        jMenuItemExtraChangeColor.addActionListener(this);
+        jMenuItemExtraRaiseHandDialog.addActionListener(this);
+        jMenuItemExtraBreakTheCounter.addActionListener(this);
+
         jMenuItemExitSelect.addActionListener(this);
 
         jTextFieldMessageBox.getDocument().addDocumentListener(new DocumentListener() {
@@ -375,7 +409,6 @@ public class StudentSide extends JFrame implements ActionListener {
 
     // </editor-fold>
     //
-    //
     // <editor-fold defaultstate="collapsed" desc="Override the actionPerformed Function">
     // Override the actionPerformed Function to customize the Clicking Results
     @Override
@@ -384,6 +417,20 @@ public class StudentSide extends JFrame implements ActionListener {
             setAttendeeName(studentName);
             System.out.println("Menu Iteam Attendance Attend");
         }
+        if (ae.getSource() == jMenuItemExtraChangeColor) {
+            changeBackgroundColor();
+            System.out.println("Menu Iteam Extra Change Color");
+        } else if (ae.getSource() == jMenuItemExtraRaiseHandDialog) {
+            setDialogForRaiseHand();
+            System.out.println("Menu Item Extra Raise Hand Dialog");
+        } else if (ae.getSource() == jMenuItemExtraBreakTheCounter) {
+            if (isCounterBroken) {
+                isCounterBroken = false;
+            } else if (!isCounterBroken) {
+                isCounterBroken = true;
+            }
+            System.out.println("Menu Item Extra Counter is Broken");
+        }
         if (ae.getSource() == jMenuItemExitSelect) {
             exitApplication();
         }
@@ -391,8 +438,8 @@ public class StudentSide extends JFrame implements ActionListener {
 
     // </editor-fold>
     //
-    // Override the Paint Function to Draw shapes on the Whiteboard
     // <editor-fold defaultstate="collapsed" desc="Override the Paint Function">
+    // Override the Paint Function to Draw shapes on the Whiteboard
     @Override
     public void paint(Graphics g) {
         super.paint(g);
@@ -402,18 +449,25 @@ public class StudentSide extends JFrame implements ActionListener {
                 switch (shape.getType()) {
                     case 0:
                         g2.setColor(shape.getColor());
-                        g2.fillRect(shape.getX(), shape.getY(), 62, 46);
+                        g2.fillRect(shape.getX(), shape.getY(), 46, 46);
                         break;
                     case 1:
                         g2.setColor(shape.getColor());
-                        g2.fillOval(shape.getX(), shape.getY(), 60, 60);
+                        g2.fillRect(shape.getX(), shape.getY(), 66, 46);
                         break;
                     case 2:
+                        g2.setColor(shape.getColor());
+                        g2.fillOval(shape.getX(), shape.getY(), 86, 60);
+                        break;
+                    case 3:
                         g2.setColor(shape.getColor());
                         g2.setStroke(new BasicStroke(6));
                         g2.drawLine(shape.getX(), shape.getY(), shape.getX() + 66, shape.getY() + 66);
                         break;
-                    case 3:
+                    case 4:
+                        g.drawImage(bufferedImageLogo, shape.getX(), shape.getY(), this);
+                        break;
+                    case 9:
                         g2.setColor(shape.getColor());
                         g2.setFont(new Font("TimesRoman", Font.PLAIN, 26));
                         g2.drawString("Time is Over", shape.getX(), shape.getY());
@@ -426,17 +480,24 @@ public class StudentSide extends JFrame implements ActionListener {
                 switch (shape.getType()) {
                     case 0:
                         g.setColor(shape.getColor());
-                        g.fillRect(shape.getX(), shape.getY(), 86, 60);
+                        g.fillRect(shape.getX(), shape.getY(), 60, 60);
                         break;
                     case 1:
                         g.setColor(shape.getColor());
-                        g.fillOval(shape.getX(), shape.getY(), 86, 60);
+                        g.fillRect(shape.getX(), shape.getY(), 96, 60);
                         break;
                     case 2:
                         g.setColor(shape.getColor());
-                        g.drawLine(shape.getX(), shape.getY(), shape.getX() + 66, shape.getY() + 66);
+                        g.fillOval(shape.getX(), shape.getY(), 60, 60);
                         break;
                     case 3:
+                        g.setColor(shape.getColor());
+                        g.drawLine(shape.getX(), shape.getY(), shape.getX() + 66, shape.getY() + 66);
+                        break;
+                    case 4:
+                        g.drawImage(bufferedImageLogo, shape.getX(), shape.getY(), this);
+                        break;
+                    case 9:
                         drawnShapesList = new ArrayList<Shape>();
                         g.setColor(shape.getColor());
                         g.setFont(new Font("TimesRoman", Font.PLAIN, 26));
@@ -450,7 +511,6 @@ public class StudentSide extends JFrame implements ActionListener {
     }
 
     // </editor-fold>
-    //
     //
     // <editor-fold defaultstate="collapsed" desc="(Switch - Counter - Draw - Append - Update - Clear) Functions">
     // Switch function to check the Received Object type and then process it accordingly
@@ -492,10 +552,14 @@ public class StudentSide extends JFrame implements ActionListener {
                 if (obj.getNum() == 0) {
                     updateSelectedShapeAndColor("Square");
                 } else if (obj.getNum() == 1) {
-                    updateSelectedShapeAndColor("Oval");
+                    updateSelectedShapeAndColor("Rectangle");
                 } else if (obj.getNum() == 2) {
-                    updateSelectedShapeAndColor("Line");
+                    updateSelectedShapeAndColor("Oval");
                 } else if (obj.getNum() == 3) {
+                    updateSelectedShapeAndColor("Line");
+                } else if (obj.getNum() == 4) {
+                    updateSelectedShapeAndColor("Image");
+                } else if (obj.getNum() == 5) {
                     selectedColor = obj.getColor();
                     updateSelectedShapeAndColor(selectedDrawShape);
                 }
@@ -583,12 +647,24 @@ public class StudentSide extends JFrame implements ActionListener {
 
     // Shapes Counter showing the size of the "drawnShapesList" in the "jLabelShapesCount" Label
     public void shapesCounter() {
-        jLabelShapesCount.setText("Shapes Count: " + String.valueOf(drawnShapesList.size()));
+        shapesCount = drawnShapesList.size();
+        if (isCounterBroken) {
+            int randomNum = ThreadLocalRandom.current().nextInt(10, 620 + 1);
+            shapesCount = randomNum;
+        }
+        jLabelShapesCount.setText("Shapes Count: " + String.valueOf(shapesCount));
         jLabelShapesCount.setForeground(Color.black);
     }
 
     // Draw the selected shape on the Whiteboard and return a "sentComplexObj" ComplexObject
     public void drawShape(int type, int x, int y, Color color) {
+        if (type == 3) {
+            try {
+                bufferedImageLogo = ImageIO.read(new File("baulogo.png"));
+            } catch (IOException ex) {
+                Logger.getLogger(TeacherSide.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
         Shape receivedShape = new Shape(type, x, y, color);
         drawnShapesList.add(receivedShape);
         if (!isTimeOver) {
@@ -624,15 +700,13 @@ public class StudentSide extends JFrame implements ActionListener {
             jPanelRaiseHand.add(jLabelRaiseHand, BorderLayout.CENTER);
             jLabelRaiseHand.setForeground(Color.black);
             isHandRaised = true;
-            ComplexObject sentComplexObj = new ComplexObject(3, true);
-            streamObject(sentComplexObj);
+            streamObject(new ComplexObject(3, true));
         } else if (isHandRaised) {
             jPanelRaiseHand.setBackground(btnColor);
             jPanelRaiseHand.add(jLabelRaiseHand, BorderLayout.CENTER);
             jLabelRaiseHand.setForeground(Color.gray);
             isHandRaised = false;
-            ComplexObject sentComplexObj = new ComplexObject(3, false);
-            streamObject(sentComplexObj);
+            streamObject(new ComplexObject(3, false));
         }
     }
 
@@ -648,12 +722,10 @@ public class StudentSide extends JFrame implements ActionListener {
     // Send the Typing Object to the Client
     public void iAmTyping(boolean iAmTypingNow) {
         if (iAmTypingNow) {
-            ComplexObject sentComplexObj = new ComplexObject(4, true);
-            streamObject(sentComplexObj);
+            streamObject(new ComplexObject(4, true));
             iAmTyping = true;
         } else if (!iAmTypingNow) {
-            ComplexObject sentComplexObj = new ComplexObject(4, false);
-            streamObject(sentComplexObj);
+            streamObject(new ComplexObject(4, false));
             iAmTyping = false;
         }
     }
@@ -686,16 +758,16 @@ public class StudentSide extends JFrame implements ActionListener {
     public void setTimer(int timeSelected) {
         switch (timeSelected) {
             case 0:
-                startTimer(0, 30);
+                startTimer(0, 6);
                 break;
             case 1:
-                startTimer(1, 0);
+                startTimer(0, 30);
                 break;
             case 2:
-                startTimer(2, 0);
+                startTimer(1, 0);
                 break;
             case 3:
-                startTimer(5, 0);
+                startTimer(2, 0);
                 break;
             default:
                 break;
@@ -789,7 +861,7 @@ public class StudentSide extends JFrame implements ActionListener {
         }
         x += dx;
         y += dy;
-        drawShape(3, x, y, timeIsOverColor);
+        drawShape(9, x, y, timeIsOverColor);
     }
 
     public void startAnimation() {
@@ -839,11 +911,11 @@ public class StudentSide extends JFrame implements ActionListener {
         JPanel exitPanel = new JPanel();
         exitPanel.setLayout(null);
         JLabel exitLabelQuestion = new JLabel("Are you sure?");
-        exitLabelQuestion.setBounds(0, 4, 80, 20);
+        exitLabelQuestion.setBounds(0, 4, 92, 20);
         JCheckBox exitCheckBox = new JCheckBox();
-        exitCheckBox.setBounds(90, 4, 20, 20);
+        exitCheckBox.setBounds(110, 4, 18, 20);
         JLabel exitLabelConfirm = new JLabel("Confirm");
-        exitLabelConfirm.setBounds(112, 4, 50, 20);
+        exitLabelConfirm.setBounds(132, 4, 50, 20);
         exitPanel.add(exitLabelQuestion);
         exitPanel.add(exitCheckBox);
         exitPanel.add(exitLabelConfirm);
@@ -857,6 +929,28 @@ public class StudentSide extends JFrame implements ActionListener {
         }
         System.out.println("The Program has been Successfully Terminated");
     }
+
+    // </editor-fold>
+    //
+    // <editor-fold defaultstate="collapsed" desc="Extra Features">
+    public void changeBackgroundColor() {
+        Color initialcolor = Color.white;
+        selectedColor = JColorChooser.showDialog(jMenuItemExtraChangeColor, "Select a color", initialcolor);
+        drawingPanel.setBackground(selectedColor);
+        jTextAreaChat.setBackground(selectedColor);
+        jTextFieldMessageBox.setBackground(selectedColor);
+    }
+
+    public void setDialogForRaiseHand() {
+        String[] options = {"Yes", "No"};
+        int x = JOptionPane.showOptionDialog(null, "Do you want to raise your hand??",
+                "Confirm",
+                JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, options, options[0]);
+        if (x == 0) {
+            raiseHand();
+        }
+    }
+
     // </editor-fold>
     //
 }

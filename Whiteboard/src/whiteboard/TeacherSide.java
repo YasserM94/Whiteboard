@@ -6,6 +6,7 @@ import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.util.concurrent.ThreadLocalRandom;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -18,6 +19,9 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
+import static java.lang.Integer.max;
+import static java.lang.Long.min;
+import static java.lang.Math.max;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.text.SimpleDateFormat;
@@ -26,6 +30,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
 
 import javax.swing.JButton;
@@ -50,10 +55,11 @@ import javax.swing.filechooser.FileSystemView;
 
 public class TeacherSide extends JFrame implements ActionListener {
 
+    //
     // <editor-fold defaultstate="collapsed" desc="Declared Variables">
     ArrayList<Shape> drawnShapesList = new ArrayList<Shape>();
 
-    BufferedImage bufferedImageHandImage;
+    BufferedImage bufferedImageLogo;
 
     JPanel jPanelSelectedShape, jPanelSelectedColor;
     JLabel jLabelSelectedShape, jLabelSelectedColor;
@@ -68,18 +74,20 @@ public class TeacherSide extends JFrame implements ActionListener {
 
     JMenuBar jMenuBarMenuBar;
     JMenu jMenuTimer, jMenuAttendance, jMenuDrawing, jMenuShapes, jMenuColor, jMenuClear, jMenuExit;
-    JMenuItem jMenuItemSetTimer, jMenuIteamResetTimer, jMenuIteamTimerAnim, jMenuIteamAttendeeList, jMenuIteamExportList,
-            jMenuItemDrawGraphics, jMenuItemDrawGraphics2D, jMenuItemShapeSquare, jMenuItemShapeOval, jMenuItemShapeLine,
+    JMenuItem jMenuItemSetTimer, jMenuIteamResetTimer, jMenuIteamTimerAnim, jMenuIteamAttendeeList,
+            jMenuIteamExportList, jMenuItemDrawGraphics, jMenuItemDrawGraphics2D,
+            jMenuItemShapeSquare, jMenuItemShapeRectangle, jMenuItemShapeOval, jMenuItemShapeLine, jMenuItemShapeImage,
             jMenuItemColorSelect, jMenuItemColorRandom, jMenuItemClearBoard, jMenuItemClearChat, jMenuItemExitSelect;
 
     String studentName = null;
-    boolean teacherMode = false, isHandRaised = false, iAmTyping = false, isConnected = false, isGraphics2D = false;
+    boolean teacherMode = false, isHandRaised = false, iAmTyping = false,
+            isConnected = false, isGraphics2D = false;
     int selectedShape, xPoint, yPoint;
     int x, y, dx, dy;
 
     Color defaultColor = UIManager.getColor("Panel.background"); // Default Button Color
     Color btnColor = new Color(255, 255, 204);
-    Color selectedColor = new Color(204, 255, 204);
+    Color selectedColor = new Color(153, 255, 153);
     String selectedDrawShape = "Square";
 
     Timer timerServer;
@@ -95,6 +103,7 @@ public class TeacherSide extends JFrame implements ActionListener {
 
     // </editor-fold>
     //
+    // <editor-fold defaultstate="collapsed" desc="Server Default Constructor">
     public TeacherSide() {
         super("Teacher Application");
 //        getHandImage();
@@ -104,6 +113,9 @@ public class TeacherSide extends JFrame implements ActionListener {
         setMenuBarEnabled(false);
     }
 
+    // </editor-fold>
+    //
+    // <editor-fold defaultstate="collapsed" desc="Initialize The Server GUI">
     // Initialize all the Server Components in the GUI
     public void initializeGUI() {
         // Initialize The Program JPanel
@@ -204,6 +216,8 @@ public class TeacherSide extends JFrame implements ActionListener {
 
     }
 
+    // </editor-fold>
+    //
     // <editor-fold defaultstate="collapsed" desc="Connection Management Functions">
     //
     // Start the Server to accept the connection from the Client
@@ -281,6 +295,7 @@ public class TeacherSide extends JFrame implements ActionListener {
 
     // </editor-fold>
     //
+    // <editor-fold defaultstate="collapsed" desc="Initializes ALL the Menu Bar Items">
     // Initializes ALL the Menu Bar Items with it's options
     public void setJMenuBarAndMenuBarItems() {
         jMenuBarMenuBar = new JMenuBar();
@@ -313,11 +328,15 @@ public class TeacherSide extends JFrame implements ActionListener {
 
         jMenuShapes = new JMenu("Shapes");
         jMenuItemShapeSquare = new JMenuItem("Square");
+        jMenuItemShapeRectangle = new JMenuItem("Rectangle");
         jMenuItemShapeOval = new JMenuItem("Oval");
         jMenuItemShapeLine = new JMenuItem("Line");
+        jMenuItemShapeImage = new JMenuItem("Image");
         jMenuShapes.add(jMenuItemShapeSquare);
+        jMenuShapes.add(jMenuItemShapeRectangle);
         jMenuShapes.add(jMenuItemShapeOval);
         jMenuShapes.add(jMenuItemShapeLine);
+        jMenuShapes.add(jMenuItemShapeImage);
         jMenuBarMenuBar.add(jMenuShapes);
 
         jMenuColor = new JMenu("Color");
@@ -342,6 +361,9 @@ public class TeacherSide extends JFrame implements ActionListener {
         setJMenuBar(jMenuBarMenuBar);
     }
 
+    // </editor-fold>
+    //
+    // <editor-fold defaultstate="collapsed" desc="setActionListener to Components">
     // Add ActionListener to the Components which requires clicking action
     public void setActionListener() {
         jMenuItemSetTimer.addActionListener(this);
@@ -355,8 +377,10 @@ public class TeacherSide extends JFrame implements ActionListener {
         jMenuItemDrawGraphics2D.addActionListener(this);
 
         jMenuItemShapeSquare.addActionListener(this);
+        jMenuItemShapeRectangle.addActionListener(this);
         jMenuItemShapeOval.addActionListener(this);
         jMenuItemShapeLine.addActionListener(this);
+        jMenuItemShapeImage.addActionListener(this);
 
         jMenuItemColorSelect.addActionListener(this);
         jMenuItemColorRandom.addActionListener(this);
@@ -420,6 +444,7 @@ public class TeacherSide extends JFrame implements ActionListener {
 
     }
 
+    // </editor-fold>
     //
     // <editor-fold defaultstate="collapsed" desc="Override the actionPerformed Function">
     // Override the actionPerformed Function to customize the Clicking Results for the Menu Items
@@ -466,16 +491,26 @@ public class TeacherSide extends JFrame implements ActionListener {
             selectedShape = 0;
             updateSelectedShapeAndColor("Square");
             System.out.println("Square");
-        } else if (ae.getSource() == jMenuItemShapeOval) {
+        } else if (ae.getSource() == jMenuItemShapeRectangle) {
             selectedShape = 1;
             streamObject(new ComplexObject(6, 1));
+            updateSelectedShapeAndColor("Rectangle");
+            System.out.println("Rectangle");
+        } else if (ae.getSource() == jMenuItemShapeOval) {
+            selectedShape = 2;
+            streamObject(new ComplexObject(6, 2));
             updateSelectedShapeAndColor("Oval");
             System.out.println("Oval");
         } else if (ae.getSource() == jMenuItemShapeLine) {
-            selectedShape = 2;
-            streamObject(new ComplexObject(6, 2));
+            selectedShape = 3;
+            streamObject(new ComplexObject(6, 3));
             updateSelectedShapeAndColor("Line");
             System.out.println("Line");
+        } else if (ae.getSource() == jMenuItemShapeImage) {
+            selectedShape = 4;
+            streamObject(new ComplexObject(6, 4));
+            updateSelectedShapeAndColor("Image");
+            System.out.println("Image");
         }
         if (ae.getSource() == jMenuItemColorSelect) {
             setColor(0);
@@ -514,18 +549,25 @@ public class TeacherSide extends JFrame implements ActionListener {
                 switch (shape.getType()) {
                     case 0:
                         g2.setColor(shape.getColor());
-                        g2.fillRect(shape.getX(), shape.getY(), 62, 46);
+                        g2.fillRect(shape.getX(), shape.getY(), 46, 46);
                         break;
                     case 1:
                         g2.setColor(shape.getColor());
-                        g2.fillOval(shape.getX(), shape.getY(), 60, 60);
+                        g2.fillRect(shape.getX(), shape.getY(), 66, 46);
                         break;
                     case 2:
+                        g2.setColor(shape.getColor());
+                        g2.fillOval(shape.getX(), shape.getY(), 86, 60);
+                        break;
+                    case 3:
                         g2.setColor(shape.getColor());
                         g2.setStroke(new BasicStroke(6));
                         g2.drawLine(shape.getX(), shape.getY(), shape.getX() + 66, shape.getY() + 66);
                         break;
-                    case 3:
+                    case 4:
+                        g.drawImage(bufferedImageLogo, shape.getX(), shape.getY(), this);
+                        break;
+                    case 9:
                         g2.setColor(shape.getColor());
                         g2.setFont(new Font("TimesRoman", Font.PLAIN, 26));
                         g2.drawString("Time is Over", shape.getX(), shape.getY());
@@ -538,17 +580,24 @@ public class TeacherSide extends JFrame implements ActionListener {
                 switch (shape.getType()) {
                     case 0:
                         g.setColor(shape.getColor());
-                        g.fillRect(shape.getX(), shape.getY(), 86, 60);
+                        g.fillRect(shape.getX(), shape.getY(), 60, 60);
                         break;
                     case 1:
                         g.setColor(shape.getColor());
-                        g.fillOval(shape.getX(), shape.getY(), 86, 60);
+                        g.fillRect(shape.getX(), shape.getY(), 96, 60);
                         break;
                     case 2:
                         g.setColor(shape.getColor());
-                        g.drawLine(shape.getX(), shape.getY(), shape.getX() + 66, shape.getY() + 66);
+                        g.fillOval(shape.getX(), shape.getY(), 60, 60);
                         break;
                     case 3:
+                        g.setColor(shape.getColor());
+                        g.drawLine(shape.getX(), shape.getY(), shape.getX() + 66, shape.getY() + 66);
+                        break;
+                    case 4:
+                        g.drawImage(bufferedImageLogo, shape.getX(), shape.getY(), this);
+                        break;
+                    case 9:
                         drawnShapesList = new ArrayList<Shape>();
                         g.setColor(shape.getColor());
                         g.setFont(new Font("TimesRoman", Font.PLAIN, 26));
@@ -665,12 +714,15 @@ public class TeacherSide extends JFrame implements ActionListener {
     // Select a Color for the Shape to draw
     public void setColor(int selection) {
         if (selection == 0) {
-            Color initialcolor = Color.GRAY;
-            selectedColor = JColorChooser.showDialog(jMenuItemColorSelect, "Select a color", initialcolor);
+            Color initialColor = selectedColor;
+            initialColor = JColorChooser.showDialog(null, "Select a color", initialColor);
+            if (initialColor != null) {
+                selectedColor = initialColor;
+            }
         } else if (selection == 1) {
             selectedColor = new Color((int) (Math.random() * 0x1000000));
         }
-        streamObject(new ComplexObject(6, 3, selectedColor));
+        streamObject(new ComplexObject(6, 5, selectedColor));
         updateSelectedShapeAndColor(selectedDrawShape);
     }
 
@@ -688,6 +740,13 @@ public class TeacherSide extends JFrame implements ActionListener {
 
     // Draw the selected shape on the Whiteboard and return a "sentComplexObj" ComplexObject
     public ComplexObject drawShape(int type, int x, int y, Color color) {
+        if (type == 3) {
+            try {
+                bufferedImageLogo = ImageIO.read(new File("baulogo.png"));
+            } catch (IOException ex) {
+                Logger.getLogger(TeacherSide.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
         ComplexObject sentComplexObj = new ComplexObject(2, type, x, y, color);
         Shape sentShape = new Shape(type, x, y, color);
         drawnShapesList.add(sentShape);
@@ -745,20 +804,17 @@ public class TeacherSide extends JFrame implements ActionListener {
     // Send the Typing Object to the Student
     public void iAmTyping(boolean iAmTypingNow) {
         if (iAmTypingNow) {
-            ComplexObject sentComplexObj = new ComplexObject(4, true);
-            streamObject(sentComplexObj);
+            streamObject(new ComplexObject(4, true));
             iAmTyping = true;
         } else if (!iAmTypingNow) {
-            ComplexObject sentComplexObj = new ComplexObject(4, false);
-            streamObject(sentComplexObj);
+            streamObject(new ComplexObject(4, false));
             iAmTyping = false;
         }
     }
 
     // Clear the Whiteboard and send the "ComplexObject" to the Client
     public void clearTheBoard() {
-        ComplexObject sentComplexObj = new ComplexObject(5, 1);
-        streamObject(sentComplexObj);
+        streamObject(new ComplexObject(5, 1));
         drawnShapesList = new ArrayList<Shape>();
         repaint();
         jLabelShapesCount.setText("<html><font color='black'>Shapes Count: </font>0</html>");
@@ -767,8 +823,7 @@ public class TeacherSide extends JFrame implements ActionListener {
 
     // Clear the Chat and send the "ComplexObject" to the Client
     public void clearTheChat() {
-        ComplexObject sentComplexObj = new ComplexObject(5, 2);
-        streamObject(sentComplexObj);
+        streamObject(new ComplexObject(5, 2));
         jTextAreaChat.setText(null);
     }
 
@@ -785,7 +840,7 @@ public class TeacherSide extends JFrame implements ActionListener {
     public void setTimer() {
         int timeSelected = 9;
         if (!isTimerRunning) {
-            String[] options = {"30 Sec", "1 Min", "2 Min", "5 Min"};
+            String[] options = {"6 Sec", "30 Sec", "1 Min", "2 Min"};
             timeSelected = JOptionPane.showOptionDialog(null, "Select Time",
                     "Set Timer",
                     JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, options, options[0]);
@@ -802,16 +857,16 @@ public class TeacherSide extends JFrame implements ActionListener {
 
         switch (timeSelected) {
             case 0:
-                startTimer(0, 30);
+                startTimer(0, 6);
                 break;
             case 1:
-                startTimer(1, 0);
+                startTimer(0, 30);
                 break;
             case 2:
-                startTimer(2, 0);
+                startTimer(1, 0);
                 break;
             case 3:
-                startTimer(5, 0);
+                startTimer(2, 0);
                 break;
             case 9:
                 break;
@@ -877,7 +932,6 @@ public class TeacherSide extends JFrame implements ActionListener {
 
     public void resetTimer() {
         if (isTimerRunning) {
-            updateTimer("<html><font color='black'>Time Left: </font>00:00</html>");
             streamObject(new ComplexObject(7, false));
             timerServer.stop();
             isTimerRunning = false;
@@ -890,6 +944,7 @@ public class TeacherSide extends JFrame implements ActionListener {
             jMenuIteamResetTimer.setEnabled(false);
             jMenuIteamTimerAnim.setEnabled(true);
         }
+        updateTimer("<html><font color='black'>Time Left: </font>00:00</html>");
         System.out.println("Timer has been Reset Successfully");
     }
 
@@ -915,7 +970,7 @@ public class TeacherSide extends JFrame implements ActionListener {
         }
         x += dx;
         y += dy;
-        drawAnim(3, x, y, timeIsOverColor);
+        drawAnim(9, x, y, timeIsOverColor);
     }
 
     public void startAnimation() {
@@ -1000,11 +1055,11 @@ public class TeacherSide extends JFrame implements ActionListener {
         JPanel exitPanel = new JPanel();
         exitPanel.setLayout(null);
         JLabel exitLabelQuestion = new JLabel("Are you sure?");
-        exitLabelQuestion.setBounds(0, 4, 80, 20);
+        exitLabelQuestion.setBounds(0, 4, 92, 20);
         JCheckBox exitCheckBox = new JCheckBox();
-        exitCheckBox.setBounds(90, 4, 20, 20);
+        exitCheckBox.setBounds(110, 4, 18, 20);
         JLabel exitLabelConfirm = new JLabel("Confirm");
-        exitLabelConfirm.setBounds(112, 4, 50, 20);
+        exitLabelConfirm.setBounds(132, 4, 50, 20);
         exitPanel.add(exitLabelQuestion);
         exitPanel.add(exitCheckBox);
         exitPanel.add(exitLabelConfirm);
